@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>🛢️ WTI Crude Oil Futures (NYMEX)</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow+Condensed:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#fff;--bg2:#f8f9fa;--bg3:#f1f3f5;
+  --border:#dee2e6;--text:#212529;--text2:#495057;--text3:#868e96;
+  --green:#2f9e44;--red:#c92a2a;--orange:#e67700;
+  --oil:#8a5a1e;--accent:#1971c2;
+  --kf:#dc2626;--ks:#7c3aed;
+  --font-mono:'Space Mono',monospace;
+  --font-cond:'Barlow Condensed',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font-cond);min-height:100vh}
+
+.topbar{background:#fff;border-bottom:2px solid var(--border);display:flex;align-items:center;gap:12px;padding:14px 20px;flex-wrap:wrap}
+.logo{font-weight:800;font-size:18px;letter-spacing:2px;color:var(--oil)}
+.exch-tag{background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:10px;color:var(--text3);font-family:var(--font-mono)}
+.price{font-family:var(--font-mono);font-size:22px;font-weight:700;color:var(--oil)}
+.varpct{font-family:var(--font-mono);font-size:14px;font-weight:700}
+.spacer{flex:1}
+.btn{background:var(--bg2);border:1px solid var(--border);color:var(--text2);padding:6px 14px;border-radius:5px;cursor:pointer;font-size:11px;font-family:var(--font-cond);font-weight:800;letter-spacing:1px}
+.btn:hover{border-color:var(--oil);color:var(--oil)}
+.btn-refresh{background:var(--accent);border:none;color:#fff}
+.btn-refresh:hover{background:#155a9c;color:#fff}
+.btn-excel{background:#1a7f37;border:none;color:#fff}
+.btn-excel:hover{background:#166a2e;color:#fff}
+.btn-pdf{background:#c8960c;border:none;color:#fff}
+.btn-pdf:hover{background:#a97d0a;color:#fff}
+.btn-back{color:var(--text2);text-decoration:none;font-size:11px;border:1px solid var(--border);padding:6px 12px;border-radius:5px}
+.btn-back:hover{border-color:var(--oil);color:var(--oil)}
+
+.tf-bar{display:flex;gap:4px}
+.tf-btn{background:var(--bg2);border:1px solid var(--border);color:var(--text3);padding:3px 10px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:700;font-family:var(--font-cond);letter-spacing:1px}
+.tf-btn:hover,.tf-btn.act{background:var(--oil);border-color:var(--oil);color:#fff}
+
+.section-title{font-size:12px;font-weight:700;letter-spacing:1px;color:var(--text2);padding:14px 20px 4px}
+.chart-label{font-size:10px;color:var(--text3);padding:0 20px 6px}
+#chart-container,#renkoChart{padding:0 12px}
+
+.stag-wrap{padding:10px 20px}
+.stag-kpis{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.kpi{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:8px 14px;min-width:120px}
+.kpi .kl{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
+.kpi .kv{font-family:var(--font-mono);font-size:15px;font-weight:700}
+.kpi .ks{font-size:10px;color:var(--text3)}
+
+.stag-table{width:100%;border-collapse:collapse;font-size:12px}
+.stag-table th{background:var(--bg2);padding:6px 10px;text-align:left;font-weight:700;color:var(--text2);border-bottom:1px solid var(--border)}
+.stag-table td{padding:6px 10px;border-bottom:1px solid var(--bg2)}
+.stag-table tr:hover{background:var(--bg2)}
+.pos{color:var(--green);font-weight:700}
+.neg{color:var(--red);font-weight:700}
+.curr-month{background:#fff9db}
+
+.antonacci-box{margin:10px 20px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:12px 16px;font-size:12px}
+.antonacci-box b{font-family:var(--font-mono)}
+
+.footer{padding:14px 20px;font-size:10px;color:var(--text3);border-top:1px solid var(--border)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">🛢️ WTI CRUDE OIL</div>
+  <span class="exch-tag">NYMEX · CL=F</span>
+  <div class="price" id="sPrezzo">—</div>
+  <div class="varpct" id="sVar">—</div>
+  <div class="spacer"></div>
+  <div class="tf-bar">
+    <button class="tf-btn" onclick="setTF(63)"  id="tf3m">3M</button>
+    <button class="tf-btn act" onclick="setTF(126)" id="tf6m">6M</button>
+    <button class="tf-btn" onclick="setTF(252)" id="tf1a">1A</button>
+    <button class="tf-btn" onclick="setTF(756)" id="tf3a">3A</button>
+    <button class="tf-btn" onclick="setTF(9999)" id="tfAll">ALL</button>
+  </div>
+  <button class="btn btn-refresh" onclick="aggiornaOra()">🔄 Aggiorna ora</button>
+  <button class="btn btn-excel" onclick="downloadExcel()">📊 Excel</button>
+  <button class="btn btn-pdf" onclick="downloadPDF()">📄 Regole PDF</button>
+  <a class="btn-back" href="index.html">← Torna</a>
+</div>
+
+<div class="section-title">📈 WTI Crude Oil Futures — Prezzo + KAMA Fast/Slow</div>
+<div class="chart-label" id="mainLabel">—</div>
+<div id="chart-container"><div id="mainChart"></div></div>
+
+<div class="section-title">🧱 Renko WTI — ATR-based</div>
+<div class="chart-label" id="renkoLabel">Mattone = ATR(14) medio del periodo · Verde = rialzo · Rosso = ribasso · Asse orizzontale = numero di mattoni, NON tempo</div>
+<div id="renkoChart"></div>
+
+<div class="section-title">🎯 Momentum Antonacci (12M assoluto)</div>
+<div class="antonacci-box" id="antonacciBox">—</div>
+
+<div class="section-title">📅 Stagionalità storica — rendimento medio mensile</div>
+<div class="stag-wrap">
+  <div class="stag-kpis" id="stagKpis"></div>
+  <table class="stag-table">
+    <thead><tr><th>Mese</th><th>Rendimento medio</th><th>Win rate</th><th>N. anni</th></tr></thead>
+    <tbody id="stagBody"></tbody>
+  </table>
+</div>
+
+<div class="footer">RAPTOR Oil · giorgiogoldoni.github.io/oil · WTI Crude Oil Futures (NYMEX, CL=F) — future quotato negli Stati Uniti · Solo uso educativo — verificare sempre prima di operare</div>
+
+<script>
+const DATA_URL = 'https://raw.githubusercontent.com/Giorgiogoldoni/oil/main/oil_data.json';
+let D = null, currentTF = 126;
+
+function last(arr){ if(!arr) return null; for(let i=arr.length-1;i>=0;i--) if(arr[i]!=null) return arr[i]; return null; }
+
+async function init() {
+  try {
+    const r = await fetch(DATA_URL + '?t=' + Date.now());
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    D = await r.json();
+    render();
+  } catch(e) {
+    document.getElementById('mainChart').textContent = '❌ '+e.message;
+  }
+}
+
+function setTF(n) {
+  currentTF = n;
+  ['tf3m','tf6m','tf1a','tf3a','tfAll'].forEach(id=>document.getElementById(id).classList.remove('act'));
+  const map={63:'tf3m',126:'tf6m',252:'tf1a',756:'tf3a',9999:'tfAll'};
+  document.getElementById(map[n]).classList.add('act');
+  render();
+}
+
+function sliceTF(arr){ if(!arr) return []; return currentTF>=9999 ? arr : arr.slice(-currentTF); }
+
+function render() {
+  if(!D || !D.wti) return;
+  updateHeader();
+  drawMain();
+  drawRenko();
+  renderAntonacci();
+  renderStagionalita();
+}
+
+function updateHeader() {
+  const w = D.wti;
+  const lc = last(w.closes);
+  const prevC = w.closes.filter(v=>v!=null).slice(-2)[0];
+  const varpct = (prevC && lc) ? ((lc-prevC)/prevC*100) : null;
+  document.getElementById('sPrezzo').textContent = lc!=null ? lc.toFixed(2)+' $' : '—';
+  const vEl = document.getElementById('sVar');
+  vEl.textContent = varpct!=null ? (varpct>=0?'+':'')+varpct.toFixed(2)+'%' : '—';
+  vEl.style.color = varpct>=0 ? 'var(--green)' : 'var(--red)';
+}
+
+// ── SVG HELPERS ───────────────────────────────────
+const ns='http://www.w3.org/2000/svg';
+function svgEl(tag,attrs,par){ const e=document.createElementNS(ns,tag); for(const [k,v] of Object.entries(attrs)) e.setAttribute(k,v); if(par) par.appendChild(e); return e; }
+function scY(v,mn,mx,yT,h){ if(mx===mn) return yT+h/2; return yT+h-((v-mn)/(mx-mn))*h; }
+function poly(pts,svg2,stroke,sw=1.5){ if(pts.length<2) return; svgEl('polyline',{points:pts.map(([x,y])=>`${x.toFixed(1)},${y.toFixed(1)}`).join(' '),stroke,'stroke-width':sw,fill:'none','stroke-linejoin':'round'},svg2); }
+function txt(x,y,s,fill,size=8,anchor='middle',svg2){ const e=svgEl('text',{x:x.toFixed(1),y:y.toFixed(1),fill,'font-size':size,'font-family':'Space Mono,monospace','text-anchor':anchor},svg2); e.textContent=s; return e; }
+
+function drawMain() {
+  const el = document.getElementById('mainChart'); el.innerHTML='';
+  const w = D.wti;
+  const dates = sliceTF(w.dates), closes = sliceTF(w.closes), highs = sliceTF(w.highs), lows = sliceTF(w.lows);
+  const kf = sliceTF(w.kama_fast), ks = sliceTF(w.kama_slow);
+  const N = closes.length;
+  document.getElementById('mainLabel').textContent = `WTI Crude Oil Futures · ${N} barre · KAMA Fast (rosso) / Slow (viola)`;
+  if (N<2) { el.textContent='Dati insufficienti'; return; }
+
+  const W=1000,H=380,PAD={l:56,r:20,t:10,b:24}; const PW=W-PAD.l-PAD.r, PH=H-PAD.t-PAD.b;
+  const allV=[...highs,...lows,...kf,...ks].filter(v=>v!=null);
+  const mn=Math.min(...allV), mx=Math.max(...allV); const pad=(mx-mn)*0.05;
+  const yMin=mn-pad, yMax=mx+pad;
+  const xPos=i=>PAD.l+(i/(N-1))*PW; const sy=v=>scY(v,yMin,yMax,PAD.t,PH);
+
+  const svg=svgEl('svg',{viewBox:`0 0 ${W} ${H}`,width:'100%',height:H,style:'display:block;background:#fff'});
+  svgEl('rect',{x:PAD.l,y:PAD.t,width:PW,height:PH,fill:'#f8f9fa'},svg);
+  for(let g=0;g<=4;g++){
+    const y=PAD.t+PH/4*g;
+    svgEl('line',{x1:PAD.l,y1:y.toFixed(1),x2:PAD.l+PW,y2:y.toFixed(1),stroke:g===0||g===4?'#ced4da':'#e9ecef','stroke-width':g===0||g===4?.8:.4},svg);
+    txt(PAD.l-4,y+3,(yMax-(yMax-yMin)/4*g).toFixed(2),'#adb5bd',7,'end',svg);
+  }
+  poly(closes.map((v,i)=>v!=null?[xPos(i),sy(v)]:null).filter(Boolean), svg, '#8a5a1e', 1.4);
+  poly(kf.map((v,i)=>v!=null?[xPos(i),sy(v)]:null).filter(Boolean), svg, '#dc2626', 1.2);
+  poly(ks.map((v,i)=>v!=null?[xPos(i),sy(v)]:null).filter(Boolean), svg, '#7c3aed', 1.2);
+
+  const step=Math.max(1,Math.floor(N/8));
+  for(let i=0;i<N;i+=step) if(dates[i]) txt(xPos(i),H-PAD.b+12,dates[i].slice(0,7),'#adb5bd',7,'middle',svg);
+
+  el.appendChild(svg);
+}
+
+function calcATRSeries(highs,lows,closes){
+  const tr=[];
+  for(let i=0;i<closes.length;i++){
+    if(i===0||!closes[i-1]){ tr.push(highs[i]-lows[i]); continue; }
+    tr.push(Math.max(highs[i]-lows[i],Math.abs(highs[i]-closes[i-1]),Math.abs(lows[i]-closes[i-1])));
+  }
+  return tr;
+}
+function buildRenkoBricks(closes,brickSize){
+  const bricks=[]; let current=Math.round(closes[0]/brickSize)*brickSize; let trend=0;
+  for(let i=1;i<closes.length;i++){
+    const price=closes[i]; if(price==null) continue; let guard=0;
+    while(guard++<100){
+      if(trend>=0 && price>=current+brickSize){ current+=brickSize; trend=1; bricks.push({dir:1,level:current}); }
+      else if(trend<=0 && price<=current-brickSize){ current-=brickSize; trend=-1; bricks.push({dir:-1,level:current}); }
+      else if(trend===1 && price<=current-2*brickSize){ current-=brickSize; trend=-1; bricks.push({dir:-1,level:current}); }
+      else if(trend===-1 && price>=current+2*brickSize){ current+=brickSize; trend=1; bricks.push({dir:1,level:current}); }
+      else break;
+    }
+  }
+  return bricks;
+}
+function drawRenko() {
+  const el = document.getElementById('renkoChart'); el.innerHTML='';
+  const w = D.wti;
+  const closes = sliceTF(w.closes).filter(v=>v!=null);
+  const highs = sliceTF(w.highs), lows = sliceTF(w.lows), allCloses = sliceTF(w.closes);
+  const tr = calcATRSeries(highs,lows,allCloses);
+  const atrAvg = tr.reduce((a,c)=>a+c,0)/tr.length;
+  const brickSize = Math.max(0.05, +(atrAvg/3).toFixed(2));
+  const bricks = buildRenkoBricks(closes, brickSize);
+  document.getElementById('renkoLabel').textContent =
+    `Mattone = $${brickSize.toFixed(2)} (ATR14 medio ≈ $${atrAvg.toFixed(2)}) · Verde = rialzo · Rosso = ribasso · Asse orizzontale = numero di mattoni (${bricks.length}), NON tempo`;
+  const N = bricks.length;
+  if (N<2) { el.innerHTML='<div style="padding:20px;color:#868e96;font-size:11px">Dati insufficienti per il Renko</div>'; return; }
+  const W=1000,H=220,PAD={l:56,r:20,t:8,b:20}; const PW=W-PAD.l-PAD.r, PH=H-PAD.t-PAD.b;
+  const levels = bricks.map(x=>x.level); const mn=Math.min(...levels)-brickSize, mx=Math.max(...levels)+brickSize;
+  const bW=PW/N; const sy=v=>scY(v,mn,mx,PAD.t,PH);
+  const svg=svgEl('svg',{viewBox:`0 0 ${W} ${H}`,width:'100%',height:H,style:'display:block;background:#fff'});
+  svgEl('rect',{x:PAD.l,y:PAD.t,width:PW,height:PH,fill:'#f8f9fa'},svg);
+  bricks.forEach((br,i)=>{
+    const x=PAD.l+i*bW; const top=sy(br.level); const bot=sy(br.level-brickSize*br.dir);
+    const y=Math.min(top,bot), h=Math.max(Math.abs(top-bot),1);
+    svgEl('rect',{x:(x+.5).toFixed(1),y:y.toFixed(1),width:Math.max(bW-1,1).toFixed(1),height:h.toFixed(1),fill:br.dir>0?'#2f9e44':'#c92a2a',stroke:'#fff','stroke-width':.5},svg);
+  });
+  el.appendChild(svg);
+}
+
+function renderAntonacci() {
+  const a = D.antonacci_wti_latest;
+  const el = document.getElementById('antonacciBox');
+  if(!a) { el.textContent='Dati non disponibili'; return; }
+  el.innerHTML = `Segnale attuale: <b style="color:${a.signal==='BUY'?'#2f9e44':'#c92a2a'}">${a.signal}</b> ·
+    Rendimento a 12 mesi: <b>${a.ret_12m>=0?'+':''}${a.ret_12m}%</b> ·
+    Prezzo di riferimento: <b>${a.price?.toFixed(2)} $</b> (al ${a.date}) ·
+    Regola: rendimento 12M &gt; 0 → BUY, altrimenti → OUT (dual momentum assoluto)`;
+}
+
+function renderStagionalita() {
+  const stag = D.wti_stagionalita;
+  const el = document.getElementById('stagBody');
+  if(!stag) { el.innerHTML=''; return; }
+  const meseAtt = new Date().getMonth()+1;
+  const best = stag.reduce((a,b)=>a.avg_ret>b.avg_ret?a:b);
+  const worst = stag.reduce((a,b)=>a.avg_ret<b.avg_ret?a:b);
+  const curr = stag[meseAtt-1];
+  document.getElementById('stagKpis').innerHTML = [
+    {l:'Mese attuale', v:curr.nome, s:`avg ${curr.avg_ret>=0?'+':''}${curr.avg_ret}% · WR ${curr.win_rate}%`},
+    {l:'Miglior mese storico', v:best.nome, s:`avg +${best.avg_ret}% · WR ${best.win_rate}%`},
+    {l:'Peggior mese storico', v:worst.nome, s:`avg ${worst.avg_ret}% · WR ${worst.win_rate}%`},
+  ].map(k=>`<div class="kpi"><div class="kl">${k.l}</div><div class="kv">${k.v}</div><div class="ks">${k.s}</div></div>`).join('');
+
+  el.innerHTML = stag.map(s=>`
+    <tr class="${s.mese===meseAtt?'curr-month':''}">
+      <td>${s.nome}${s.mese===meseAtt?' 👈':''}</td>
+      <td class="${s.avg_ret>=0?'pos':'neg'}">${s.avg_ret>=0?'+':''}${s.avg_ret}%</td>
+      <td>${s.win_rate}%</td>
+      <td>${s.n_anni}</td>
+    </tr>`).join('');
+}
+
+async function aggiornaOra() {
+  const token = prompt('Incolla il tuo GitHub Personal Access Token (permesso "actions:write"). Non viene salvato da nessuna parte, serve solo per questa chiamata:');
+  if(!token) return;
+  try {
+    const r = await fetch('https://api.github.com/repos/Giorgiogoldoni/oil/actions/workflows/oil.yml/dispatches', {
+      method:'POST',
+      headers:{ 'Authorization':'Bearer '+token, 'Accept':'application/vnd.github+json' },
+      body: JSON.stringify({ ref:'main' })
+    });
+    if(r.status===204) alert('✅ Aggiornamento avviato. I dati saranno pronti tra circa 1-2 minuti — ricarica la pagina.');
+    else alert('❌ Errore: HTTP '+r.status+' — verifica il token.');
+  } catch(e) { alert('❌ Errore di rete: '+e.message); }
+}
+
+function downloadExcel() {
+  const w = D?.wti; if(!w) return;
+  const rows = w.dates.map((d,i)=>({ Data:d, Chiusura:w.closes[i], Max:w.highs[i], Min:w.lows[i], KAMA_Fast:w.kama_fast[i], KAMA_Slow:w.kama_slow[i] }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'WTI');
+  const wsStag = XLSX.utils.json_to_sheet(D.wti_stagionalita||[]);
+  XLSX.utils.book_append_sheet(wb, wsStag, 'Stagionalita');
+  XLSX.writeFile(wb, 'WTI_storico.xlsx');
+}
+
+function downloadPDF() {
+  const w = D?.wti; const a = D?.antonacci_wti_latest; const stag = D?.wti_stagionalita || [];
+  const lc = last(w?.closes);
+  const meseAtt = new Date().getMonth()+1;
+  const curr = stag[meseAtt-1];
+  const html2 = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<style>
+  body{font-family:'Segoe UI',sans-serif;max-width:680px;margin:40px auto;color:#212529;font-size:13px;line-height:1.6}
+  h1{color:#8a5a1e;font-size:22px;border-bottom:3px solid #8a5a1e;padding-bottom:8px;margin-bottom:20px}
+  h2{color:#495057;font-size:15px;margin:24px 0 8px;padding-left:10px;border-left:3px solid #8a5a1e}
+  table{width:100%;border-collapse:collapse;margin:10px 0 20px;font-size:12px}
+  thead th{background:#212529;color:#fff;padding:7px 10px;text-align:left;font-weight:700}
+  tbody tr{border-bottom:1px solid #dee2e6} tbody tr:nth-child(even){background:#f8f9fa}
+  td{padding:6px 10px}
+  .box{background:#fff9db;border:1px solid #ffd43b;border-radius:5px;padding:12px 16px;margin:12px 0;font-size:12px;color:#7a5c00}
+  .footer{margin-top:40px;padding-top:12px;border-top:1px solid #dee2e6;font-size:10px;color:#868e96}
+</style></head><body>
+<h1>🛢️ WTI Crude Oil Futures — Regole Operative</h1>
+<p style="color:#868e96;font-size:11px">Generato il ${new Date().toLocaleString('it-IT')} · NYMEX CL=F · Future quotato negli Stati Uniti</p>
+<h2>📊 Stato attuale</h2>
+<p>Prezzo: <strong>${lc?.toFixed(2)||'—'} $</strong> · Antonacci 12M: <strong>${a?.signal||'—'}</strong> (${a?.ret_12m>=0?'+':''}${a?.ret_12m||'—'}%)</p>
+<h2>🎯 Momentum Antonacci — Dual Momentum assoluto</h2>
+<table><thead><tr><th>Condizione</th><th>Segnale</th></tr></thead><tbody>
+<tr><td>Rendimento a 12 mesi &gt; 0</td><td style="color:#2f9e44;font-weight:700">BUY</td></tr>
+<tr><td>Rendimento a 12 mesi ≤ 0</td><td style="color:#c92a2a;font-weight:700">OUT</td></tr>
+</tbody></table>
+<h2>📅 Stagionalità — mese corrente</h2>
+<p>${curr ? `${curr.nome}: rendimento medio ${curr.avg_ret>=0?'+':''}${curr.avg_ret}% su ${curr.n_anni} anni, win rate ${curr.win_rate}%` : '—'}</p>
+<div class="box">
+  <strong>⚠️ Avvertenza:</strong> il WTI è un future energetico soggetto a forte volatilità geopolitica e a eventi OPEC+.
+  La stagionalità è un'indicazione storica media, non una garanzia — va sempre incrociata con il regime di mercato attuale e il momentum Antonacci.
+</div>
+<div class="footer">RAPTOR Oil · giorgiogoldoni.github.io/oil · Solo uso educativo — verificare sempre prima di operare</div>
+</body></html>`;
+  const blob = new Blob([html2], {type:'text/html'});
+  const url = URL.createObjectURL(blob);
+  const a2 = document.createElement('a');
+  a2.href=url; a2.download='WTI_Regole_RAPTOR.html';
+  a2.click(); URL.revokeObjectURL(url);
+}
+
+init();
+</script>
+</body>
+</html>
