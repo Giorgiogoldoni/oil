@@ -1,0 +1,37 @@
+name: RAPTOR Oil — Daily Fetch
+
+on:
+  schedule:
+    - cron: '0 6 * * 1-5'    # 08:00 ora italiana (CET/CEST, approssimato)
+    - cron: '0 14 * * 1-5'   # 16:00 ora italiana
+    - cron: '0 17 * * 1-5'   # 19:00 ora italiana
+  workflow_dispatch:          # trigger manuale — usato dal bottone "Aggiorna ora" in index.html
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Installa dipendenze
+        run: pip install -r requirements.txt
+
+      - name: Esegui fetch
+        run: python oil_fetch.py
+
+      - name: Commit oil_data.json
+        run: |
+          git config user.name  "RAPTOR Bot"
+          git config user.email "raptor-bot@noreply.github.com"
+          git add oil_data.json
+          git diff --staged --quiet || git commit -m "🛢️ Oil data $(date +'%d/%m/%Y %H:%M')"
+          git pull --rebase origin main
+          git push
